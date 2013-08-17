@@ -2,6 +2,9 @@ word2vec
 ========
 
 Original from https://code.google.com/p/word2vec/
+
+***makefile and some source has been modified for Mac OS X compilation***
+
 I've copied it to a github project so I can apply and track community patches for my needs (starting with capability for Mac OS X compilation).
 
 To get started: 
