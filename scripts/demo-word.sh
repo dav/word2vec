@@ -9,10 +9,10 @@ if [ ! -e $DATA_DIR/text8 ]; then
 fi
 
 echo -----------------------------------------------------------------------------------------------------
-echo -- Training...
-time $BIN_DIR/word2vec -train $DATA_DIR/text8 -output $DATA_DIR/vectors.bin -cbow 0 -size 200 -window 5 -negative 0 -hs 1 -sample 1e-3 -threads 12 -binary 1
+echo -- Training vectors...
+time $BIN_DIR/word2vec -train $DATA_DIR/text8 -output $DATA_DIR/text8-vector.bin -cbow 0 -size 200 -window 5 -negative 0 -hs 1 -sample 1e-3 -threads 12 -binary 1
 
 echo -----------------------------------------------------------------------------------------------------
-echo -- Calculating distance...
+echo -- distance...
 
-$BIN_DIR/distance $DATA_DIR/vectors.bin
+$BIN_DIR/distance $DATA_DIR/text8-vector.bin
