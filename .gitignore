@@ -1,0 +1,5 @@
+src/compute-accuracy
+src/distance
+src/word-analogy
+src/word2phrase
+src/word2vec
