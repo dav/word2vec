@@ -2,6 +2,8 @@ word2vec
 ========
 
 Original from https://code.google.com/p/word2vec/
+I've copied it to a github project so I can apply and track community patches for my needs (starting with capability for Mac OS X compilation).
+
 
 This tool provides an efficient implementation of the continuous bag-of-words and skip-gram architectures for computing vector representations of words. These representations can be subsequently used in many natural language processing applications and for further research. 
 
