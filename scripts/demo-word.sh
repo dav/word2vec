@@ -1,12 +1,11 @@
 DATA_DIR=../data
-BIN_DIR=../src
+BIN_DIR=../bin
 
 TEXT_DATA=$DATA_DIR/text8
 VECTOR_DATA=$DATA_DIR/text8-vector.bin
 
 pushd ${BIN_DIR} && make; popd
 
-  
 if [ ! -e $VECTOR_DATA ]; then
   
   if [ ! -e $TEXT_DATA ]; then

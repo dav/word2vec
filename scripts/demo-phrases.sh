@@ -1,11 +1,12 @@
 DATA_DIR=../data
-BIN_DIR=../src
+BIN_DIR=../bin
+SRC_DIR=../src
 
 TEXT_DATA=$DATA_DIR/text8
 PHRASES_DATA=$DATA_DIR/text8-phrases
 PHRASES_VECTOR_DATA=$DATA_DIR/vectors-phrase.bin
 
-pushd ${BIN_DIR} && make; popd
+pushd ${SRC_DIR} && make; popd
 
 if [ ! -e $PHRASES_VECTOR_DATA ]; then
   

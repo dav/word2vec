@@ -1,5 +1,6 @@
 DATA_DIR=../data
-BIN_DIR=../src
+BIN_DIR=../bin
+SRC_DIR=../src
 
 TEXT_DATA=$DATA_DIR/text8
 PHRASES_DATA=$DATA_DIR/text8-phrases
@@ -10,7 +11,7 @@ echo Note that the accuracy and coverage of the test set questions is going to b
 echo To achieve better accuracy, larger training set is needed
 echo ----------------------------------------------------------------------------------------------------------------
 
-pushd ${BIN_DIR} && make; popd
+pushd ${SRC_DIR} && make; popd
 
 if [ ! -e $PHRASES_VECTOR_DATA ]; then
   
