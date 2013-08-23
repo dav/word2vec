@@ -1,10 +1,11 @@
 DATA_DIR=../data
 BIN_DIR=../bin
+SRC_DIR=../src
 
 TEXT_DATA=$DATA_DIR/text8
 VECTOR_DATA=$DATA_DIR/text8-vector.bin
 
-pushd ${BIN_DIR} && make; popd
+pushd ${SRC_DIR} && make; popd
 
 if [ ! -e $VECTOR_DATA ]; then
   
