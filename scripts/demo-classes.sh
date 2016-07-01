@@ -1,6 +1,8 @@
+#!/bin/bash
+
 DATA_DIR=../data
-SRC_DIR=../src
 BIN_DIR=../bin
+SRC_DIR=../src
 
 TEXT_DATA=$DATA_DIR/text8
 CLASSES_DATA=$DATA_DIR/classes.txt

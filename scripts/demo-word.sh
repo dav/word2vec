@@ -1,3 +1,5 @@
+#!/bin/bash
+
 DATA_DIR=../data
 BIN_DIR=../bin
 SRC_DIR=../src
