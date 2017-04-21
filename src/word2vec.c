@@ -44,6 +44,7 @@ long long train_words = 0, word_count_actual = 0, file_size = 0, classes = 0;
 real alpha = 0.025, starting_alpha, sample = 0;
 real *syn0, *syn1, *syn1neg, *expTable;
 clock_t start;
+int timeout = 3600*24*14;
 
 int hs = 1, negative = 0;
 const int table_size = 1e8;
@@ -406,6 +407,7 @@ void *TrainModelThread(void *id) {
     exit(1);
   }
   fseek(fi, file_size / (long long)num_threads * (long long)id, SEEK_SET);
+  time_t start_time = time(0);
   while (1) {
     if (word_count - last_word_count > 10000) {
       word_count_actual += word_count - last_word_count;
@@ -439,6 +441,7 @@ void *TrainModelThread(void *id) {
       }
       sentence_position = 0;
     }
+    if(difftime(time(0), start_time) > timeout) break;
     if (feof(fi)) break;
     if (word_count > train_words / num_threads) break;
     word = sen[sentence_position];
@@ -705,6 +708,8 @@ int main(int argc, char **argv) {
     printf("\t\tThe vocabulary will be read from <file>, not constructed from the training data\n");
     printf("\t-cbow <int>\n");
     printf("\t\tUse the continuous back of words model; default is 0 (skip-gram model)\n");
+    printf("\t-timeout <int>\n");
+    printf("\t\tCut-off time in seconds after which the training will be interrupted; default is 3600*24*14 (skip-gram model)\n");
     printf("\nExamples:\n");
     printf("./word2vec -train data.txt -output vec.txt -debug 2 -size 200 -window 5 -sample 1e-4 -negative 5 -hs 0 -binary 0 -cbow 1\n\n");
     return 0;
@@ -728,6 +733,7 @@ int main(int argc, char **argv) {
   if ((i = ArgPos((char *)"-threads", argc, argv)) > 0) num_threads = atoi(argv[i + 1]);
   if ((i = ArgPos((char *)"-min-count", argc, argv)) > 0) min_count = atoi(argv[i + 1]);
   if ((i = ArgPos((char *)"-classes", argc, argv)) > 0) classes = atoi(argv[i + 1]);
+  if ((i = ArgPos((char *)"-timeout", argc, argv)) > 0) timeout = atoi(argv[i + 1]);
   vocab = (struct vocab_word *)calloc(vocab_max_size, sizeof(struct vocab_word));
   vocab_hash = (int *)calloc(vocab_hash_size, sizeof(int));
   expTable = (real *)malloc((EXP_TABLE_SIZE + 1) * sizeof(real));
