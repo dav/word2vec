@@ -395,9 +395,11 @@ void DestroyNet() {
 void *TrainModelThread(void *id) {
   long long a, b, d, word, last_word, sentence_length = 0, sentence_position = 0;
   long long word_count = 0, last_word_count = 0, sen[MAX_SENTENCE_LENGTH + 1];
+  long long batch_size = 1;
   long long l1, l2, c, target, label;
   unsigned long long next_random = (long long)id;
   real f, g;
+  real logL, batch_logL = 0, logistic;
   clock_t now;
   real *neu1 = (real *)calloc(layer1_size, sizeof(real));
   real *neu1e = (real *)calloc(layer1_size, sizeof(real));
@@ -408,27 +410,33 @@ void *TrainModelThread(void *id) {
   }
   fseek(fi, file_size / (long long)num_threads * (long long)id, SEEK_SET);
   time_t start_time = time(0);
+  // Main training loop
   while (1) {
+    // Every once in a while, print progress and shrink the learning rate
     if (word_count - last_word_count > 10000) {
       word_count_actual += word_count - last_word_count;
       last_word_count = word_count;
       if ((debug_mode > 1)) {
         now=clock();
-        printf("Alpha: %f  Progress: %.2f%%  Words/thread/sec: %.2fk  \n", alpha,
+        printf("Alpha: %f LogL: %.4f Progress: %.2f%%  Words/thread/sec: %.2fk  \n", alpha,
+         batch_logL / (real)batch_size,
          word_count_actual / (real)(train_words + 1) * 100,
          word_count_actual / ((real)(now - start + 1) / (real)CLOCKS_PER_SEC * 1000));
         fflush(stdout);
       }
+      batch_size = 0;
+      batch_logL = 0;
       alpha = starting_alpha * (1 - word_count_actual / (real)(train_words + 1));
       if (alpha < starting_alpha * 0.0001) alpha = starting_alpha * 0.0001;
     }
+    // Read new sentence
     if (sentence_length == 0) {
       while (1) {
         word = ReadWordIndex(fi);
         if (feof(fi)) break;
         if (word == -1) continue;
         word_count++;
-        if (word == 0) break;
+        if (word == 0) break; // word 0 is "</s>"
         // The subsampling randomly discards frequent words while keeping the ranking same
         if (sample > 0) {
           real ran = (sqrt(vocab[word].cn / (sample * train_words)) + 1) * (sample * train_words) / vocab[word].cn;
@@ -441,6 +449,7 @@ void *TrainModelThread(void *id) {
       }
       sentence_position = 0;
     }
+    // Early timeout
     if(difftime(time(0), start_time) > timeout) break;
     if (feof(fi)) break;
     if (word_count > train_words / num_threads) break;
@@ -450,7 +459,22 @@ void *TrainModelThread(void *id) {
     for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
     next_random = next_random * (unsigned long long)25214903917 + 11;
     b = next_random % window;
+
+    // Forward + Backprop pass, per architecture
+    //
     if (cbow) {  //train the cbow architecture
+
+      // Variables:
+      // * layer1_size: hidden layer size
+      // * syn0 : input matrix
+      // * l1: offset to select the right vector in the input matrix
+      // * syn1[neg]: ouptput matrix
+      // * l2: offset to select the right vector in the output matrix
+      // * f: dot product of input and output metrices
+      // * neu1: adding up all the vectors in the context window
+      // * neu1e: gradient (* learning rate) acculated for a given word of the window to update the input matrix
+
+
       // in -> hidden
       for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
         c = sentence_position - window + a;
@@ -458,22 +482,28 @@ void *TrainModelThread(void *id) {
         if (c >= sentence_length) continue;
         last_word = sen[c];
         if (last_word == -1) continue;
+        // forward pass accumulation
         for (c = 0; c < layer1_size; c++) neu1[c] += syn0[c + last_word * layer1_size];
       }
-      if (hs) for (d = 0; d < vocab[word].codelen; d++) {
-        f = 0;
-        l2 = vocab[word].point[d] * layer1_size;
-        // Propagate hidden -> output
-        for (c = 0; c < layer1_size; c++) f += neu1[c] * syn1[c + l2];
-        if (f <= -MAX_EXP) continue;
-        else if (f >= MAX_EXP) continue;
-        else f = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
-        // 'g' is the gradient multiplied by the learning rate
-        g = (1 - vocab[word].code[d] - f) * alpha;
-        // Propagate errors output -> hidden
-        for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1[c + l2];
-        // Learn weights hidden -> output
-        for (c = 0; c < layer1_size; c++) syn1[c + l2] += g * neu1[c];
+      if (hs) {
+        for (d = 0; d < vocab[word].codelen; d++) {
+          f = 0;
+          l2 = vocab[word].point[d] * layer1_size;
+          // Propagate hidden -> output
+          for (c = 0; c < layer1_size; c++) f += neu1[c] * syn1[c + l2];
+          if (f <= -MAX_EXP) continue;
+          else if (f >= MAX_EXP) continue;
+          else f = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
+          // 'g' is the gradient multiplied by the learning rate
+          g = (1 - vocab[word].code[d] - f) * alpha;
+          // Propagate errors output -> hidden
+          for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1[c + l2];
+          // Learn weights hidden -> output
+          for (c = 0; c < layer1_size; c++) syn1[c + l2] += g * neu1[c];
+
+          batch_logL += f * (1 - vocab[word].code[d]) + vocab[word].code[d] * (1 - f);
+          batch_size += 1;
+        }
       }
       // NEGATIVE SAMPLING
       if (negative > 0) for (d = 0; d < negative + 1; d++) {
@@ -490,12 +520,21 @@ void *TrainModelThread(void *id) {
         l2 = target * layer1_size;
         f = 0;
         for (c = 0; c < layer1_size; c++) f += neu1[c] * syn1neg[c + l2];
-        if (f > MAX_EXP) g = (label - 1) * alpha;
-        else if (f < -MAX_EXP) g = (label - 0) * alpha;
-        else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
+        
+        if (f > MAX_EXP) logistic = 1;
+        else if (f < -MAX_EXP) logistic = 0;
+        else logistic = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
+
+        g = (label - logistic) * alpha;
+        logL += logistic * label + (1 - label) * (1 - logistic);
+
         for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
         for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += g * neu1[c];
       }
+
+      batch_logL += logL / (negative + 1);
+      batch_size += 1;
+
       // hidden -> in
       for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
         c = sentence_position - window + a;
@@ -505,14 +544,26 @@ void *TrainModelThread(void *id) {
         if (last_word == -1) continue;
         for (c = 0; c < layer1_size; c++) syn0[c + last_word * layer1_size] += neu1e[c];
       }
+
     } else {  //train skip-gram
-      for (a = b; a < window * 2 + 1 - b; a++) if (a != window) {
+
+      // Variables:
+      // * layer1_size: hidden layer size
+      // * syn0 : input matrix
+      // * l1: offset to select the right vector in the input matrix
+      // * syn1[neg]: ouptput matrix
+      // * l2: offset to select the right vector in the output matrix
+      // * f: dot product of input and output metrices
+      // * neu1e: gradient (* learning rate) acculated for a given word of the window to update the input matrix
+
+
+      for (a = b; a < window * 2 + 1 - b; a++) if (a != window) { // each word of the context
         c = sentence_position - window + a;
         if (c < 0) continue;
         if (c >= sentence_length) continue;
         last_word = sen[c];
         if (last_word == -1) continue;
-        l1 = last_word * layer1_size;
+        l1 = last_word * layer1_size; // offset for the context word
         for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
         // HIERARCHICAL SOFTMAX
         if (hs) for (d = 0; d < vocab[word].codelen; d++) {
@@ -520,39 +571,61 @@ void *TrainModelThread(void *id) {
           l2 = vocab[word].point[d] * layer1_size;
           // Propagate hidden -> output
           for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1[c + l2];
+          
+
           if (f <= -MAX_EXP) continue;
           else if (f >= MAX_EXP) continue;
           else f = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
+
           // 'g' is the gradient multiplied by the learning rate
           g = (1 - vocab[word].code[d] - f) * alpha;
           // Propagate errors output -> hidden
           for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1[c + l2];
           // Learn weights hidden -> output
           for (c = 0; c < layer1_size; c++) syn1[c + l2] += g * syn0[c + l1];
+
+
+          batch_logL += f * (1 - vocab[word].code[d]) + vocab[word].code[d] * (1 - f);
+          batch_size += 1;
         }
         // NEGATIVE SAMPLING
-        if (negative > 0) for (d = 0; d < negative + 1; d++) {
-          if (d == 0) {
-            target = word;
-            label = 1;
-          } else {
-            next_random = next_random * (unsigned long long)25214903917 + 11;
-            target = table[(next_random >> 16) % table_size];
-            if (target == 0) target = next_random % (vocab_size - 1) + 1;
-            if (target == word) continue;
-            label = 0;
+        if (negative > 0) {
+          logL = 0;
+          for (d = 0; d < negative + 1; d++) { // for each negitive sample
+            if (d == 0) { // Acutual postive
+              target = word;
+              label = 1;
+            } else { // Negative samples
+              next_random = next_random * (unsigned long long)25214903917 + 11;
+              target = table[(next_random >> 16) % table_size];
+              if (target == 0) target = next_random % (vocab_size - 1) + 1;
+              if (target == word) continue;
+              label = 0;
+            }
+            l2 = target * layer1_size; // offset for the target word
+            f = 0; // dot product
+            for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1neg[c + l2];
+
+
+            if (f > MAX_EXP) logistic = 1;
+            else if (f < -MAX_EXP) logistic = 0;
+            // g is grandient times learning rate
+            else logistic = expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))];
+            
+            g = (label - logistic) * alpha;
+            logL += logistic * label + (1 - label) * (1 - logistic);
+
+            // Update
+            for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
+            for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += g * syn0[c + l1];
           }
-          l2 = target * layer1_size;
-          f = 0;
-          for (c = 0; c < layer1_size; c++) f += syn0[c + l1] * syn1neg[c + l2];
-          if (f > MAX_EXP) g = (label - 1) * alpha;
-          else if (f < -MAX_EXP) g = (label - 0) * alpha;
-          else g = (label - expTable[(int)((f + MAX_EXP) * (EXP_TABLE_SIZE / MAX_EXP / 2))]) * alpha;
-          for (c = 0; c < layer1_size; c++) neu1e[c] += g * syn1neg[c + l2];
-          for (c = 0; c < layer1_size; c++) syn1neg[c + l2] += g * syn0[c + l1];
         }
         // Learn weights input -> hidden
+        // For each word in a given window, we update the input layer
         for (c = 0; c < layer1_size; c++) syn0[c + l1] += neu1e[c];
+
+        batch_logL += logL / (negative + 1);
+        batch_size += 1;
       }
     }
     sentence_position++;
