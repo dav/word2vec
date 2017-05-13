@@ -19,7 +19,7 @@ To get started:
 
 This tool provides an efficient implementation of the continuous bag-of-words and skip-gram architectures for computing vector representations of words. These representations can be subsequently used in many natural language processing applications and for further research. 
 
-Tools for computing distributed representtion of words
+Tools for computing distributed representation of words
 ------------------------------------------------------
 
 We provide an implementation of the Continuous Bag-of-Words (CBOW) and the Skip-gram model (SG), as well as several demo scripts.
