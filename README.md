@@ -16,6 +16,8 @@ To get started:
     cd scripts && ./demo-word.sh
 
 ------------------------------------------------------
+Original README text follows:
+
 
 This tool provides an efficient implementation of the continuous bag-of-words and skip-gram architectures for computing vector representations of words. These representations can be subsequently used in many natural language processing applications and for further research. 
 
@@ -39,4 +41,3 @@ The script demo-word.sh downloads a small (100MB) text corpus from the web, and 
 is finished, the user can interactively explore the similarity of the words.
 
 More information about the scripts is provided at https://code.google.com/p/word2vec/
-

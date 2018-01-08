@@ -2,8 +2,8 @@ SCRIPTS_DIR=../scripts
 BIN_DIR=../bin
 
 CC = gcc
-#The -Ofast might not work with older versions of gcc; in that case, use -O2
-CFLAGS = -lm -pthread -O2 -Wall -funroll-loops -Wno-unused-result
+#Using -Ofast instead of -O3 might result in faster code, but is supported only by newer GCC versions
+CFLAGS = -lm -pthread -O3 -march=native -Wall -funroll-loops -Wno-unused-result
 
 all: word2vec word2phrase distance word-analogy compute-accuracy
 
