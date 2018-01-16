@@ -4,7 +4,6 @@ DATA_DIR=../data
 BIN_DIR=../bin
 SRC_DIR=../src
 
-TEXT_DATA=$DATA_DIR/text8
 VECTOR_DATA=$DATA_DIR/text8-vector.bin
 
 pushd ${SRC_DIR} && make; popd
@@ -15,18 +14,8 @@ echo Example input: paris france berlin
 echo -----------------------------------------------------------------------------------------------------
 
 if [ ! -e $VECTOR_DATA ]; then
-  
-  if [ ! -e $TEXT_DATA ]; then
-    wget http://mattmahoney.net/dc/text8.zip -O $DATA_DIR/text8.gz
-    gzip -d $DATA_DIR/text8.gz -f
-  fi
-  echo -----------------------------------------------------------------------------------------------------
-  echo -- Training vectors...
-  time $BIN_DIR/word2vec -train $TEXT_DATA -output $VECTOR_DATA -cbow 0 -size 200 -window 5 -negative 0 -hs 1 -sample 1e-3 -threads 12 -binary 1
-  
+	sh $DATA_DIR/create-text8-vector-data.sh
 fi
 
-echo -----------------------------------------------------------------------------------------------------
-echo -- analogy...
-
+set -x
 $BIN_DIR/word-analogy $VECTOR_DATA
