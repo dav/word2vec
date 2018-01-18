@@ -14,7 +14,7 @@ pushd ${SRC_DIR} && make; popd
   
 if [ ! -e $CLASSES_DATA ]; then
   if [ ! -e $TEXT_DATA ]; then
-		sh $DATA_DIR/create-text8-data.sh
+		sh ./create-text8-data.sh
 	fi
   echo -----------------------------------------------------------------------------------------------------
   echo -- Training vectors...

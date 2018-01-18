@@ -14,7 +14,7 @@ echo Example input: paris france berlin
 echo -----------------------------------------------------------------------------------------------------
 
 if [ ! -e $VECTOR_DATA ]; then
-	sh $DATA_DIR/create-text8-vector-data.sh
+	sh ./create-text8-vector-data.sh
 fi
 
 set -x

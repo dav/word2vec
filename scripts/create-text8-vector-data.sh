@@ -9,7 +9,7 @@ VECTOR_DATA=$DATA_DIR/text8-vector.bin
 
 if [ ! -e $VECTOR_DATA ]; then
   if [ ! -e $TEXT_DATA ]; then
-		sh $DATA_DIR/create-text8-data.sh
+		sh ./create-text8-data.sh
 	fi
   echo -----------------------------------------------------------------------------------------------------
   echo -- Training vectors...
