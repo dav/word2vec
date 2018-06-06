@@ -12,11 +12,18 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
+#ifdef _MSC_VER
+#define _CRT_SECURE_NO_WARNINGS
+#include <time.h>
+#include <windows.h>
+#else
+#include <pthread.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <pthread.h>
 
 #define MAX_STRING 100
 #define EXP_TABLE_SIZE 1000
@@ -338,16 +345,31 @@ void ReadVocab() {
 void InitNet() {
   long long a, b;
   unsigned long long next_random = 1;
+
+#ifdef _MSC_VER
+  syn0 = _aligned_malloc((long long)vocab_size * layer1_size * sizeof(real), 128);
+#elif defined  linux
   a = posix_memalign((void **)&syn0, 128, (long long)vocab_size * layer1_size * sizeof(real));
+#endif
+
   if (syn0 == NULL) {printf("Memory allocation failed\n"); exit(1);}
   if (hs) {
-    a = posix_memalign((void **)&syn1, 128, (long long)vocab_size * layer1_size * sizeof(real));
+#ifdef _MSC_VER
+	  syn1 = _aligned_malloc((long long)vocab_size * layer1_size * sizeof(real), 128);
+#elif defined  linux
+	  a = posix_memalign((void **)&syn1, 128, (long long)vocab_size * layer1_size * sizeof(real));
+#endif    
     if (syn1 == NULL) {printf("Memory allocation failed\n"); exit(1);}
     for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++)
      syn1[a * layer1_size + b] = 0;
   }
   if (negative>0) {
-    a = posix_memalign((void **)&syn1neg, 128, (long long)vocab_size * layer1_size * sizeof(real));
+#ifdef _MSC_VER
+	  syn1neg = _aligned_malloc((long long)vocab_size * layer1_size * sizeof(real), 128);
+#elif defined  linux
+	  a = posix_memalign((void **)&syn1neg, 128, (long long)vocab_size * layer1_size * sizeof(real));
+#endif
+    
     if (syn1neg == NULL) {printf("Memory allocation failed\n"); exit(1);}
     for (a = 0; a < vocab_size; a++) for (b = 0; b < layer1_size; b++)
      syn1neg[a * layer1_size + b] = 0;
@@ -538,13 +560,23 @@ void *TrainModelThread(void *id) {
   fclose(fi);
   free(neu1);
   free(neu1e);
+#ifdef _MSC_VER
+_endthreadex(0);
+#elif defined  linux 
   pthread_exit(NULL);
+#endif
 }
+
+#ifdef _MSC_VER
+DWORD WINAPI TrainModelThread_win(LPVOID tid){
+	TrainModelThread(tid);
+	return 0;
+}
+#endif
 
 void TrainModel() {
   long a, b, c, d;
   FILE *fo;
-  pthread_t *pt = (pthread_t *)malloc(num_threads * sizeof(pthread_t));
   printf("Starting training using file %s\n", train_file);
   starting_alpha = alpha;
   if (read_vocab_file[0] != 0) ReadVocab(); else LearnVocabFromTrainFile();
@@ -553,8 +585,23 @@ void TrainModel() {
   InitNet();
   if (negative > 0) InitUnigramTable();
   start = clock();
+  
+#ifdef _MSC_VER
+	HANDLE *pt = (HANDLE *)malloc(num_threads * sizeof(HANDLE));
+	for (int i = 0; i < num_threads; i++){
+		pt[i] = (HANDLE)_beginthreadex(NULL, 0, TrainModelThread_win, (void *)i, 0, NULL);
+	}
+	WaitForMultipleObjects(num_threads, pt, TRUE, INFINITE);
+	for (int i = 0; i < num_threads; i++){
+		CloseHandle(pt[i]);
+	}
+	free(pt);
+#elif defined  linux 
+  pthread_t *pt = (pthread_t *)malloc(num_threads * sizeof(pthread_t));
   for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainModelThread, (void *)a);
   for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
+#endif
+
   fo = fopen(output_file, "wb");
   if (classes == 0) {
     // Save the word vectors
