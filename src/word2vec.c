@@ -436,7 +436,6 @@ void *TrainModelThread(void *id) {
       continue;
     }
     word = sen[sentence_position];
-    if (word == -1) continue;
     for (c = 0; c < layer1_size; c++) neu1[c] = 0;
     for (c = 0; c < layer1_size; c++) neu1e[c] = 0;
     next_random = next_random * (unsigned long long)25214903917 + 11;
