@@ -600,6 +600,7 @@ void TrainModel() {
   pthread_t *pt = (pthread_t *)malloc(num_threads * sizeof(pthread_t));
   for (a = 0; a < num_threads; a++) pthread_create(&pt[a], NULL, TrainModelThread, (void *)a);
   for (a = 0; a < num_threads; a++) pthread_join(pt[a], NULL);
+  free(pt);
 #endif
 
   fo = fopen(output_file, "wb");
